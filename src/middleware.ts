@@ -1,25 +1,42 @@
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
 import { auth } from "@/auth"
+import { NextResponse } from "next/server"
 
 export default auth((req) => {
-  const { pathname } = req.nextUrl
-  const session = req.auth
+  const { nextUrl } = req
+  const isLoggedIn = !!req.auth
+  const userRole = req.auth?.user?.role
 
-  const publicRoutes = ["/login", "/register", "/api/register", "/api/auth", "/api/uploadthing"]
-  const isPublic = publicRoutes.some(r => pathname.startsWith(r))
+  const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth")
+  const isPublicRoute = ["/login", "/register", "/api/register"].some(route => 
+    nextUrl.pathname.startsWith(route)
+  )
 
-  if (isPublic) return NextResponse.next()
-  if (!session) return NextResponse.redirect(new URL("/login", req.url))
+  // 1. Laisser passer les requêtes d'authentification API
+  if (isApiAuthRoute) return NextResponse.next()
 
-  // Rediriger les non-admins hors de /admin
-  if (pathname.startsWith("/admin") && session.user.role !== "ADMIN") {
-    return NextResponse.redirect(new URL("/dashboard", req.url))
+  // 2. Gérer les routes publiques
+  if (isPublicRoute) {
+    if (isLoggedIn) {
+      // Si déjà connecté, on envoie vers le dashboard
+      return NextResponse.redirect(new URL("/dashboard", nextUrl))
+    }
+    return NextResponse.next()
+  }
+
+  // 3. Si pas connecté -> Redirection vers /login
+  if (!isLoggedIn) {
+    return NextResponse.redirect(new URL("/login", nextUrl))
+  }
+
+  // 4. Protection de la route Admin
+  if (nextUrl.pathname.startsWith("/admin") && userRole !== "ADMIN") {
+    return NextResponse.redirect(new URL("/dashboard", nextUrl))
   }
 
   return NextResponse.next()
 })
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Matcher optimisé pour exclure les fichiers statiques et l'API
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 }
