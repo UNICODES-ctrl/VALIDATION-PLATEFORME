@@ -41,7 +41,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center gap-4 text-center">
           <div className="relative h-20 w-20 overflow-hidden rounded-3xl border border-indigo-100 bg-indigo-50/70 p-3">
           <Image 
-            src="/logo.svg" 
+            src="/logo.png" 
             alt="Logo UNICODES" 
             width={100} 
             height={100} 
