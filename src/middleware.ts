@@ -38,5 +38,6 @@ export default auth((req) => {
 
 export const config = {
   // Matcher optimisé pour exclure les fichiers statiques et l'API
+    runtime: 'nodejs',
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 }
