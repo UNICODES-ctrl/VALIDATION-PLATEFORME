@@ -7,6 +7,15 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
+import {
+  fetchDocuments,
+  uploadDocument,
+  deleteDocument,
+  uploadFile,
+  type Document,
+  type DocumentsByType,
+  type UploadResponse,
+} from "@/lib/VALIDATIONS/documentsService"
 
 const DOCUMENTS_REQUIS = [
   { type: "CV", label: "Curriculum Vitae", desc: "Votre CV à jour", required: true },
@@ -30,14 +39,10 @@ function UploadZone({ dossierId, type, onUploaded }: {
     setError("")
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append("file", file)
-      const res = await fetch("/api/upload", { method: "POST", body: formData })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Erreur upload")
-      onUploaded(data.url, data.name, data.size)
-    } catch (err: any) {
-      setError(err.message || "Erreur lors du dépôt")
+      const response = await uploadFile(file)
+      onUploaded(response.url, response.name, response.size)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur lors du dépôt")
     } finally {
       setUploading(false)
       e.target.value = ""
@@ -64,37 +69,38 @@ function DocumentsContent() {
   const params = useParams()
   const dossierId = params.id as string
   const fromNouveau = searchParams.get("from") === "nouveau"
-  const [documents, setDocuments] = useState<Record<string, any[]>>({})
+  const [documents, setDocuments] = useState<DocumentsByType>({})
   const [deleting, setDeleting] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch(`/api/documents?dossierId=${dossierId}`).then(r => r.json()).then(data => {
-      if (data.documents) {
-        const grouped: Record<string, any[]> = {}
-        data.documents.forEach((d: any) => {
-          if (!grouped[d.type]) grouped[d.type] = []
-          grouped[d.type].push(d)
-        })
-        setDocuments(grouped)
-      }
-    })
+    fetchDocuments(dossierId).then(setDocuments)
   }, [dossierId])
 
   const handleUploaded = async (type: string, url: string, name: string, size: number) => {
-    const res = await fetch("/api/documents", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type, url, nom: name, taille: size, dossierId }),
-    })
-    const data = await res.json()
-    setDocuments(prev => ({ ...prev, [type]: [...(prev[type] || []), data.document] }))
+    try {
+      const document = await uploadDocument(type, url, name, size, dossierId)
+      setDocuments(prev => ({
+        ...prev,
+        [type]: [...(prev[type] || []), document]
+      }))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erreur lors de l'enregistrement")
+    }
   }
 
   const handleDelete = async (type: string, id: string) => {
     setDeleting(id)
-    await fetch(`/api/documents/${id}`, { method: "DELETE" })
-    setDocuments(prev => ({ ...prev, [type]: prev[type]?.filter((d: any) => d.id !== id) || [] }))
-    setDeleting(null)
+    try {
+      await deleteDocument(id)
+      setDocuments(prev => ({
+        ...prev,
+        [type]: prev[type]?.filter((d: Document) => d.id !== id) || []
+      }))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erreur lors de la suppression")
+    } finally {
+      setDeleting(null)
+    }
   }
 
   const totalUploaded = Object.values(documents).flat().length
@@ -155,7 +161,7 @@ function DocumentsContent() {
                         : <Badge variant="outline" className="text-xs text-gray-400">Optionnel</Badge>}
                     </div>
                     <p className="text-xs text-gray-400 mb-2">{doc.desc}</p>
-                    {uploaded.map((f: any) => (
+                    {uploaded.map((f: Document) => (
                       <div key={f.id} className="flex items-center gap-2 mb-1 p-2 bg-white rounded-lg border border-gray-100 text-xs">
                         <File className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                         <span className="flex-1 truncate text-gray-600">{f.nom}</span>

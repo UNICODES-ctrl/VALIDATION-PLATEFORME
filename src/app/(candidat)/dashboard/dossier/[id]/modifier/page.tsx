@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +13,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, ChevronRight, ChevronLeft, Loader2, Plus, Trash2 } from "lucide-react"
 import Link from "next/link"
+import { nouveauDossierStep1Schema, nouveauDossierStep4Schema, type NouveauDossierStep1Data, type NouveauDossierStep4Data } from "@/lib/VALIDATIONS/nouveauDossierSchema"
+import { validateAndUpdateDossier, type ParcoursAcad, type ParcoursPro, type DossierData } from "@/lib/VALIDATIONS/validateModifierDossier"
 
 const STEPS = [
     { id: 1, label: "Informations personnelles" },
@@ -30,24 +31,6 @@ const DOMAINES = [
 
 const NIVEAUX = ["Bac+2 (BTS, DUT)", "Bac+3 (Licence)", "Bac+4 (Master 1)", "Bac+5 (Master 2)", "Doctorat"]
 
-const step1Schema = z.object({
-    dateNaissance: z.string().min(1, "Requis"),
-    lieuNaissance: z.string().min(1, "Requis"),
-    adresse: z.string().min(1, "Requis"),
-    ville: z.string().min(1, "Requis"),
-    situationPro: z.string().min(1, "Requis"),
-})
-
-const step4Schema = z.object({
-    titre: z.string().min(1, "Requis"),
-    domaine: z.string().min(1, "Requis"),
-    niveauSouhaite: z.string().min(1, "Requis"),
-    description: z.string().min(10, "Minimum 10 caractères"),
-})
-
-type Step1Data = z.infer<typeof step1Schema>
-type Step4Data = z.infer<typeof step4Schema>
-
 export default function ModifierDossierPage() {
     const params = useParams()
     const dossierId = params.id as string
@@ -62,13 +45,13 @@ export default function ModifierDossierPage() {
         { poste: "", entreprise: "", dateDebut: "", dateFin: "", enPoste: false, missions: "", competences: "" }
     ])
 
-    const form1 = useForm<Step1Data>({
-        resolver: zodResolver(step1Schema),
+    const form1 = useForm<NouveauDossierStep1Data>({
+        resolver: zodResolver(nouveauDossierStep1Schema),
         defaultValues: { dateNaissance: "", lieuNaissance: "", adresse: "", ville: "", situationPro: "" }
     })
 
-    const form4 = useForm<Step4Data>({
-        resolver: zodResolver(step4Schema),
+    const form4 = useForm<NouveauDossierStep4Data>({
+        resolver: zodResolver(nouveauDossierStep4Schema),
         defaultValues: { titre: "", domaine: "", niveauSouhaite: "", description: "" }
     })
 
@@ -99,7 +82,7 @@ export default function ModifierDossierPage() {
                     }, { keepDefaultValues: false })
 
                     if (d.parcoursAcad?.length) {
-                        setParcoursAcad(d.parcoursAcad.map((p: any) => ({
+                        setParcoursAcad(d.parcoursAcad.map((p: ParcoursAcad) => ({
                             diplome: p.diplome,
                             etablissement: p.etablissement,
                             dateDebut: p.dateDebut ? new Date(p.dateDebut).toISOString().split("T")[0] : "",
@@ -108,7 +91,7 @@ export default function ModifierDossierPage() {
                         })))
                     }
                     if (d.parcoursPro?.length) {
-                        setParcoursPro(d.parcoursPro.map((p: any) => ({
+                        setParcoursPro(d.parcoursPro.map((p: ParcoursPro) => ({
                             poste: p.poste,
                             entreprise: p.entreprise,
                             dateDebut: p.dateDebut ? new Date(p.dateDebut).toISOString().split("T")[0] : "",
@@ -136,21 +119,17 @@ export default function ModifierDossierPage() {
         if (!valid) return
         setLoading(true)
         try {
-            const res = await fetch("/api/dossier", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    dossierId,
-                    ...form1.getValues(),
-                    ...form4.getValues(),
-                    parcoursAcad,
-                    parcoursPro,
-                }),
-            })
-            if (res.ok) {
-                router.push(`/dashboard/dossier/${dossierId}`)
-                router.refresh()
-            }
+            await validateAndUpdateDossier(
+                dossierId,
+                form1.getValues(),
+                form4.getValues(),
+                parcoursAcad,
+                parcoursPro
+            )
+            router.push(`/dashboard/dossier/${dossierId}`)
+            router.refresh()
+        } catch (err) {
+            alert(err instanceof Error ? err.message : "Erreur lors de la mise à jour")
         } finally {
             setLoading(false)
         }
@@ -169,12 +148,12 @@ export default function ModifierDossierPage() {
 
     const addPro = () => setParcoursPro(p => [...p, { poste: "", entreprise: "", dateDebut: "", dateFin: "", enPoste: false, missions: "", competences: "" }])
     const removePro = (i: number) => setParcoursPro(p => p.filter((_, idx) => idx !== i))
-    const updatePro = (i: number, field: string, value: any) => {
+    const updatePro = (i: number, field: string, value: string | boolean) => {
         setParcoursPro(p => p.map((item, idx) => {
             if (idx !== i) return item
             const updated = { ...item, [field]: value }
             if (field === "enPoste" && value === true) updated.dateFin = ""
-            if (field === "dateDebut" && updated.dateFin && updated.dateFin < value) updated.dateFin = ""
+            if (field === "dateDebut" && typeof value === "string" && updated.dateFin && updated.dateFin < value) updated.dateFin = ""
             return updated
         }))
     }
@@ -350,6 +329,7 @@ export default function ModifierDossierPage() {
                                     <SelectTrigger className="h-11"><SelectValue placeholder="Choisir un domaine" /></SelectTrigger>
                                     <SelectContent>{DOMAINES.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                                 </Select>
+                                {form4.formState.errors.domaine && <p className="text-xs text-red-500">{form4.formState.errors.domaine.message}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label>Niveau souhaité</Label>
@@ -357,10 +337,13 @@ export default function ModifierDossierPage() {
                                     <SelectTrigger className="h-11"><SelectValue placeholder="Choisir un niveau" /></SelectTrigger>
                                     <SelectContent>{NIVEAUX.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}</SelectContent>
                                 </Select>
+                                {form4.formState.errors.niveauSouhaite && <p className="text-xs text-red-500">{form4.formState.errors.niveauSouhaite.message}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label>Motivation et description</Label>
                                 <Textarea {...form4.register("description")} className="min-h-[120px]" />
+                                {form4.formState.errors.description && <p className="text-xs text-red-500">{form4.formState.errors.description.message}</p>}
+
                             </div>
                         </CardContent>
                     </>

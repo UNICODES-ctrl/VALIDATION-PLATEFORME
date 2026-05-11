@@ -10,6 +10,15 @@ import { CheckCircle2, CreditCard, Smartphone, Loader2, Receipt, Clock } from "l
 
 const MONTANT_VAE = 25000 // en FCFA
 
+interface Paiement {
+  id: string
+  statut: "SUCCES" | "ECHEC" | "EN_ATTENTE"
+  operateur: string
+  telephone: string
+  montant: number
+  createdAt: string
+}
+
 const OPERATEURS = [
   { id: "TMONEY", label: "T-Money", color: "bg-red-50 border-red-200 text-red-700", activeColor: "border-red-500 bg-red-50" },
   { id: "FLOOZ", label: "Flooz (Moov)", color: "bg-blue-50 border-blue-200 text-blue-700", activeColor: "border-blue-500 bg-blue-50" },
@@ -19,7 +28,7 @@ export default function PaiementPage() {
   const [operateur, setOperateur] = useState<string>("")
   const [telephone, setTelephone] = useState("")
   const [loading, setLoading] = useState(false)
-  const [paiements, setPaiements] = useState<any[]>([])
+  const [paiements, setPaiements] = useState<Paiement[]>([])
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState("")
 
@@ -54,17 +63,19 @@ export default function PaiementPage() {
       setSuccess(true)
       setTelephone("")
       setOperateur("")
-    } catch (err: any) {
-      setError(err.message || "Erreur lors du paiement")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erreur lors du paiement"
+      setError(message)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto px-4 sm:px-0">
+
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Paiement VAE</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Paiement VAE</h1>
         <p className="text-gray-500 mt-1">Réglez les frais de traitement de votre dossier</p>
       </div>
 
@@ -114,11 +125,10 @@ export default function PaiementPage() {
                     <button
                       key={op.id}
                       onClick={() => setOperateur(op.id)}
-                      className={`p-4 rounded-xl border-2 text-sm font-semibold transition-all ${
-                        operateur === op.id
-                          ? op.activeColor + " shadow-sm"
-                          : "border-gray-100 bg-gray-50 text-gray-500 hover:border-gray-200"
-                      }`}
+                      className={`p-4 rounded-xl border-2 text-sm font-semibold transition-all ${operateur === op.id
+                        ? op.activeColor + " shadow-sm"
+                        : "border-gray-100 bg-gray-50 text-gray-500 hover:border-gray-200"
+                        }`}
                     >
                       {op.label}
                     </button>
@@ -162,7 +172,7 @@ export default function PaiementPage() {
               </Button>
 
               <p className="text-xs text-center text-gray-400">
-                🔒 Paiement sécurisé via PAYgate · TMoney & Flooz
+                Paiement sécurisé via PAYgate · TMoney & Flooz
               </p>
             </CardContent>
           </Card>
@@ -179,29 +189,29 @@ export default function PaiementPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {paiements.map((p: any) => (
-              <div key={p.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg text-sm">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    p.statut === "SUCCES" ? "bg-green-100" :
+            {paiements.map((p: Paiement) => (
+              <div key={p.id} className="flex items-start sm:items-center justify-between p-3 bg-gray-50 rounded-lg text-sm gap-2">
+
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${p.statut === "SUCCES" ? "bg-green-100" :
                     p.statut === "ECHEC" ? "bg-red-100" : "bg-yellow-100"
-                  }`}>
+                    }`}>
                     {p.statut === "SUCCES" ? <CheckCircle2 className="w-4 h-4 text-green-600" /> :
-                     p.statut === "ECHEC" ? <span className="text-red-500 text-xs">✗</span> :
-                     <Clock className="w-4 h-4 text-yellow-600" />}
+                      p.statut === "ECHEC" ? <span className="text-red-500 text-xs">✗</span> :
+                        <Clock className="w-4 h-4 text-yellow-600" />}
                   </div>
                   <div>
-                    <p className="font-medium text-gray-700">{p.operateur} · {p.telephone}</p>
+                    <p className="font-medium text-gray-700 text-xs sm:text-sm truncate">{p.operateur} · {p.telephone}</p>
                     <p className="text-xs text-gray-400">{new Date(p.createdAt).toLocaleDateString("fr-FR")}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-900">{p.montant.toLocaleString()} FCFA</p>
-                  <Badge className={`text-xs ${
-                    p.statut === "SUCCES" ? "bg-green-100 text-green-700" :
+                <div className="text-right flex-shrink-0">
+                  <p className="font-semibold text-gray-900 text-xs sm:text-sm">{p.montant.toLocaleString()} FCFA</p>
+
+                  <Badge className={`text-xs ${p.statut === "SUCCES" ? "bg-green-100 text-green-700" :
                     p.statut === "ECHEC" ? "bg-red-100 text-red-700" :
-                    "bg-yellow-100 text-yellow-700"
-                  }`}>
+                      "bg-yellow-100 text-yellow-700"
+                    }`}>
                     {p.statut === "SUCCES" ? "Succès" : p.statut === "ECHEC" ? "Échec" : "En attente"}
                   </Badge>
                 </div>

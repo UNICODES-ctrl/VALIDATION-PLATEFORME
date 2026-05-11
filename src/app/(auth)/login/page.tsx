@@ -2,36 +2,43 @@
 
 import Image from "next/image"
 import { useState } from "react"
-import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, AlertCircle, Mail, Lock } from "lucide-react"
+import { loginSchema, type LoginFormData } from "@/lib/VALIDATIONS/loginSchema"
+import { validateAndLogin } from "@/lib/VALIDATIONS/validateLogin"
 
 export default function LoginPage() {
   const router = useRouter()
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+  })
+
+  async function onSubmit(data: LoginFormData) {
     setError("")
     setLoading(true)
-    const form = new FormData(e.currentTarget)
-    const result = await signIn("credentials", {
-      email: form.get("email"),
-      password: form.get("password"),
-      redirect: false,
-    })
-    setLoading(false)
-    if (result?.error) {
-      setError("Email ou mot de passe incorrect")
-    } else {
+
+    try {
+      await validateAndLogin(data)
       router.push("/")
       router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -40,27 +47,39 @@ export default function LoginPage() {
       <div className="w-full max-w-md rounded-[32px] border border-slate-200 bg-white/95 p-6 shadow-2xl shadow-slate-200/60 backdrop-blur-xl drop-shadow-lg shadow-blue-600 hover:shadow-blue-700 transition-all duration-300 hover:scale-105">
         <div className="flex flex-col items-center gap-4 text-center">
           <div className="relative h-20 w-20 overflow-hidden rounded-3xl border border-indigo-100 bg-indigo-50/70 p-3">
-          <Image 
-            src="/logo.png" 
-            alt="Logo UNICODES" 
-            width={100} 
-            height={100} 
-            className="object-contain"
-          />         
-           </div>
+          <Image
+              src="/logo.svg"
+              alt="Logo UNICODES"
+              width={100}
+              height={100}
+              className="object-contain"
+            />
+          </div>
           <div>
             {/* <h1 className="text-3xl font-semibold text-slate-900">Bon retour</h1> */}
             <h4 className="text-slcate-500">Connectez-vous à votre espace VAE en toute simplicité.</h4>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-5">
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium text-slate-700">Adresse email</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input id="email" name="email" type="email" required placeholder="votre@email.com" className="pl-10 h-11 bg-white border-slate-200 focus:border-indigo-400" />
+              <Input
+                id="email"
+                type="email"
+                placeholder="votre@email.com"
+                className={`pl-10 h-11 bg-white border-slate-200 ${errors.email
+                    ? "border-red-500 focus:ring-red-400"
+                    : "focus:border-indigo-400"
+                  }`}
+                {...register("email")}
+              />
             </div>
+            {errors.email && (
+              <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -70,8 +89,20 @@ export default function LoginPage() {
             </div>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input id="password" name="password" type="password" required placeholder="••••••••" className="pl-10 h-11 bg-white border-slate-200 focus:border-indigo-400" />
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                className={`pl-10 h-11 bg-white border-slate-200 ${errors.password
+                    ? "border-red-500 focus:ring-red-400"
+                    : "focus:border-indigo-400"
+                  }`}
+                {...register("password")}
+              />
             </div>
+            {errors.password && (
+              <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>
+            )}
           </div>
 
           {error && (

@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, Camera, CheckCircle2 } from "lucide-react"
+import { Loader2, Camera, CheckCircle2, Save, Lock } from "lucide-react"
 import Image from "next/image"
 import { UserProfil } from "@/Utils/VAE.type"
+import { useUser } from "@/context/UserContext"
 
 const PAYS = ["Togo", "Bénin", "Côte d'Ivoire", "Sénégal", "Mali", "Burkina Faso", "Cameroun", "Autre"]
 
@@ -17,7 +18,7 @@ export default function ParametresPage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState("")
-  const [user, setUser] = useState<UserProfil | null>(null)
+  const { user, setUser } = useUser()  
   const [pays, setPays] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -26,42 +27,52 @@ export default function ParametresPage() {
       .then(r => r.json())
       .then((data: { user: UserProfil }) => {
         if (data.user) {
+          console.log(user);
           setUser(data.user)
           setPays(data.user.pays || "")
         }
       })
   }, [])
 
-  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setUploadingPhoto(true)
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
-      const res = await fetch("/api/upload", { method: "POST", body: formData })
-      const data = await res.json() as { url: string; error?: string }
-      if (!res.ok) throw new Error(data.error || "Erreur upload")
+ const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  setUploadingPhoto(true)
+  try {
+    const formData = new FormData()
+    formData.append("file", file)
+    const res = await fetch("/api/upload/avatar", { 
+      method: "POST",
+      body: formData
+    })
+    const data = await res.json() as { url: string; error?: string }
+    if (!res.ok) throw new Error(data.error || "Erreur upload")
 
-      await fetch("/api/profil", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photoProfil: data.url }),
-      })
-      setUser(prev => prev ? { ...prev, photoProfil: data.url } : null)
-    } catch (err) {
-      if (err instanceof Error) setError(err.message)
-    } finally {
-      setUploadingPhoto(false)
-    }
+    //  On envoie TOUTES les infos existantes + la nouvelle photo
+    await fetch("/api/profil", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        nom: user?.nom,
+        prenom: user?.prenom,
+        telephone: user?.telephone,
+        pays: user?.pays,
+        photoProfil: data.url   
+      }),
+    })
+    setUser((prev: UserProfil | null) => prev ? { ...prev, photoProfil: data.url } : null)
+  } catch (err) {
+    if (err instanceof Error) setError(err.message)
+  } finally {
+    setUploadingPhoto(false)
   }
+}
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
     setSuccess(false)
     setLoading(true)
-
     const form = new FormData(e.currentTarget)
     const res = await fetch("/api/profil", {
       method: "PATCH",
@@ -75,10 +86,8 @@ export default function ParametresPage() {
         nouveauMotDePasse: form.get("nouveauMotDePasse") as string,
       }),
     })
-
     const data = await res.json() as { user?: UserProfil; error?: string }
     setLoading(false)
-
     if (!res.ok) {
       setError(data.error || "Erreur lors de la mise à jour")
     } else {
@@ -95,21 +104,21 @@ export default function ParametresPage() {
   )
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Paramètres</h1>
-        <p className="text-gray-500 mt-1">Gérez votre profil et vos informations personnelles</p>
+    <div className="max-w-2xl mx-auto px-4 sm:px-0">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Paramètres</h1>
+        <p className="text-gray-500 mt-1 text-sm">Gérez votre profil et vos informations personnelles</p>
       </div>
 
       {/* Photo de profil */}
-      <Card className="mb-6">
-        <CardHeader>
+      <Card className="mb-5 sm:mb-8 bg-gradient-to-l from-indigo-200 to-sky-200 border-0 drop-shadow-2xl shadow-indigo-300 transition-all duration-700 hover:shadow-indigo-400 hover:scale-[1.01]">
+        <CardHeader className="pb-3 sm:pb-4">
           <CardTitle className="text-base">Photo de profil</CardTitle>
           <CardDescription>Personnalisez votre avatar</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-6">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
+            <div className="relative flex-shrink-0">
               {user.photoProfil ? (
                 <Image
                   src={user.photoProfil}
@@ -128,7 +137,7 @@ export default function ParametresPage() {
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="absolute bottom-0 right-0 w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center border-2 border-white hover:bg-indigo-700 transition-colors"
+                className="absolute bottom-0 right-0 w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center border-2 border-white hover:bg-indigo-700 hover:scale-110 active:scale-95 transition-all duration-200"
               >
                 {uploadingPhoto
                   ? <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
@@ -136,63 +145,52 @@ export default function ParametresPage() {
                 }
               </button>
             </div>
-            <div>
+            <div className="text-center sm:text-left">
               <p className="font-medium text-gray-900">{user.prenom} {user.nom}</p>
-              <p className="text-sm text-gray-400">{user.email}</p>
+              <p className="text-sm text-gray-500">{user.email}</p>
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="text-xs text-indigo-600 hover:underline mt-1"
+                className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline mt-1 transition-colors duration-200"
               >
                 Changer la photo
               </button>
             </div>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".jpg,.jpeg,.png"
-              className="hidden"
-              onChange={handlePhotoChange}
-            />
+            <input ref={fileRef} type="file" accept=".jpg,.jpeg,.png" className="hidden" onChange={handlePhotoChange} />
           </div>
         </CardContent>
       </Card>
 
       {/* Infos personnelles */}
       <form onSubmit={handleSubmit}>
-        <Card className="mb-6">
-          <CardHeader>
+        <Card className="mb-5 sm:mb-8 bg-gradient-to-l from-indigo-200 to-sky-200 border-0 drop-shadow-2xl shadow-indigo-300 transition-all duration-700 hover:shadow-indigo-400 hover:scale-[1.01]">
+          <CardHeader className="pb-3 sm:pb-4">
             <CardTitle className="text-base">Informations personnelles</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Prénom</Label>
-                <Input name="prenom" defaultValue={user.prenom} className="h-11" />
+                <Input name="prenom" defaultValue={user.prenom} className="h-11 bg-white/70 focus:bg-white transition-colors" />
               </div>
               <div className="space-y-2">
                 <Label>Nom</Label>
-                <Input name="nom" defaultValue={user.nom} className="h-11" />
+                <Input name="nom" defaultValue={user.nom} className="h-11 bg-white/70 focus:bg-white transition-colors" />
               </div>
             </div>
             <div className="space-y-2">
               <Label>Email</Label>
-              <Input value={user.email} disabled className="h-11 opacity-60" />
-              <p className="text-xs text-gray-400">L&apos;email ne peut pas être modifié</p>
+              <Input value={user.email} disabled className="h-11 opacity-60 bg-white/50" />
+              <p className="text-xs text-gray-500">L&apos;email ne peut pas être modifié</p>
             </div>
             <div className="space-y-2">
               <Label>Téléphone</Label>
-              <Input
-                name="telephone"
-                defaultValue={user.telephone || ""}
-                placeholder="+228 90 00 00 00"
-                className="h-11"
-              />
+              <Input name="telephone" defaultValue={user.telephone || ""} placeholder="+228 90 00 00 00" className="h-11 bg-white/70 focus:bg-white transition-colors" />
             </div>
             <div className="space-y-2">
               <Label>Pays</Label>
               <Select value={pays} onValueChange={setPays}>
-                <SelectTrigger className="h-11">
+                <SelectTrigger className="h-11 w-full bg-white/70 hover:bg-white transition-colors">
                   <SelectValue placeholder="Sélectionner un pays" />
                 </SelectTrigger>
                 <SelectContent>
@@ -204,19 +202,21 @@ export default function ParametresPage() {
         </Card>
 
         {/* Mot de passe */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-base">Changer le mot de passe</CardTitle>
+        <Card className="mb-5 sm:mb-8 bg-gradient-to-l from-indigo-200 to-sky-200 border-0 drop-shadow-2xl shadow-indigo-300 transition-all duration-700 hover:shadow-indigo-400 hover:scale-[1.01]">
+          <CardHeader className="pb-3 sm:pb-4">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Lock className="w-4 h-4" /> Changer le mot de passe
+            </CardTitle>
             <CardDescription>Laissez vide si vous ne voulez pas changer</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Mot de passe actuel</Label>
-              <Input name="motDePasseActuel" type="password" placeholder="••••••••" className="h-11" />
+              <Input name="motDePasseActuel" type="password" placeholder="••••••••" className="h-11 bg-white/70 focus:bg-white transition-colors" />
             </div>
             <div className="space-y-2">
               <Label>Nouveau mot de passe</Label>
-              <Input name="nouveauMotDePasse" type="password" placeholder="8 caractères minimum" className="h-11" />
+              <Input name="nouveauMotDePasse" type="password" placeholder="8 caractères minimum" className="h-11 bg-white/70 focus:bg-white transition-colors" />
             </div>
           </CardContent>
         </Card>
@@ -235,11 +235,13 @@ export default function ParametresPage() {
         <Button
           type="submit"
           disabled={loading}
-          className="w-full h-11"
+          className="w-full h-11 font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-indigo-300 active:scale-95"
           style={{ background: "linear-gradient(135deg, #4f46e5, #6366f1)" }}
         >
-          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {loading ? "Mise à jour..." : "Enregistrer les modifications"}
+          {loading
+            ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Mise à jour...</>
+            : <><Save className="mr-2 h-4 w-4" /> Enregistrer les modifications</>
+          }
         </Button>
       </form>
     </div>

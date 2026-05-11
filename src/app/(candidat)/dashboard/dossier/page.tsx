@@ -75,34 +75,34 @@ export default function DossierPage() {
   }
 
   const handleSubmit = async () => {
-  const valid = await form4.trigger()
-  if (!valid) return
-  setLoading(true)
-  try {
-    // Récupère les valeurs directement depuis form1 au lieu de step1Data
-    const step1Values = form1.getValues()
-    
-    const res = await fetch("/api/dossier", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...step1Values,
-        ...form4.getValues(),
-        parcoursAcad,
-        parcoursPro,
-      }),
-    })
-    if (res.ok) {
-      router.push("/dashboard/documents?from=dossier")
-      router.refresh()
-    } else {
-      const json = await res.json()
-      alert(json.error || "Erreur lors de la soumission")
+    const valid = await form4.trigger()
+    if (!valid) return
+    setLoading(true)
+    try {
+      // Récupère les valeurs directement depuis form1 au lieu de step1Data
+      const step1Values = form1.getValues()
+
+      const res = await fetch("/api/dossier", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...step1Values,
+          ...form4.getValues(),
+          parcoursAcad,
+          parcoursPro,
+        }),
+      })
+      if (res.ok) {
+        router.push("/dashboard/documents?from=dossier")
+        router.refresh()
+      } else {
+        const json = await res.json()
+        alert(json.error || "Erreur lors de la soumission")
+      }
+    } finally {
+      setLoading(false)
     }
-  } finally {
-    setLoading(false)
   }
-}
   // Charger le dossier existant
   useEffect(() => {
     fetch("/api/dossier")
@@ -190,12 +190,12 @@ export default function DossierPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto px-4 sm:px-0">
       {statut && (
         <div className={`mb-6 p-3 rounded-xl text-sm flex items-center gap-2 ${statut === "BROUILLON" ? "bg-gray-50 text-gray-600 border border-gray-200" :
-            statut === "SOUMIS" ? "bg-blue-50 text-blue-700 border border-blue-200" :
+          statut === "SOUMIS" ? "bg-blue-50 text-blue-700 border border-blue-200" :
             statut === "EN_ETUDE" ? "bg-yellow-50 text-yellow-700 border border-yellow-200" :
-            statut === "VALIDE" ? "bg-green-50 text-green-700 border border-green-200" :"bg-red-50 text-red-700 border border-red-200"
+              statut === "VALIDE" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
           }`}>
           {statut === "BROUILLON" && "Brouillon — vous pouvez modifier votre dossier"}
           {statut === "SOUMIS" && "Soumis — vous pouvez encore modifier avant traitement"}
@@ -209,7 +209,7 @@ export default function DossierPage() {
 
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Mon dossier VAE</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Mon dossier VAE</h1>
         <p className="text-gray-500 mt-1">Complétez votre dossier étape par étape</p>
       </div>
 
@@ -221,11 +221,11 @@ export default function DossierPage() {
               onClick={() => step.id <= savedStep + 1 && setCurrentStep(step.id)}
               className="flex flex-col items-center gap-1 group"
             >
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${currentStep === step.id
-                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200"
-                  : savedStep >= step.id
-                    ? "bg-green-500 text-white"
-                    : "bg-gray-100 text-gray-400"
+              <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${currentStep === step.id
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200"
+                : savedStep >= step.id
+                  ? "bg-green-500 text-white"
+                  : "bg-gray-100 text-gray-400"
                 }`}>
                 {savedStep >= step.id && currentStep !== step.id
                   ? <CheckCircle2 className="w-5 h-5" />
@@ -252,7 +252,7 @@ export default function DossierPage() {
               <CardDescription>Vos données d&apos;état civil et situation actuelle</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Date de naissance</Label>
                   <Input type="date" {...form1.register("dateNaissance")} className="h-11" />
@@ -301,7 +301,7 @@ export default function DossierPage() {
                       </Button>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Diplôme obtenu</Label>
                       <Input placeholder="Licence en informatique" value={item.diplome} onChange={e => updateAcad(i, "diplome", e.target.value)} className="h-10" />
@@ -367,7 +367,7 @@ export default function DossierPage() {
                       </Button>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Poste occupé</Label>
                       <Input placeholder="Développeur senior" value={item.poste} onChange={e => updatePro(i, "poste", e.target.value)} className="h-10" />
@@ -468,7 +468,7 @@ export default function DossierPage() {
           </>
         )}
         {/* Navigation */}
-        <div className="flex items-center justify-between px-6 pb-6 pt-2">
+        <div className="flex items-center justify-between px-3 sm:px-6 pb-6 pt-2">
           <Button variant="ghost" onClick={() => setCurrentStep(s => s - 1)} disabled={currentStep === 1} className="gap-2">
             <ChevronLeft className="w-4 h-4" /> Précédent
           </Button>

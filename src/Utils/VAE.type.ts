@@ -153,12 +153,12 @@ export type { User, Session, Account, Dossier, ParcourAcademique, ParcourProfess
 export { Role, StatutDossier, TypeDocument, Operateur, StatutPaiement }
 
 export interface UserProfil {
-  id: string
-  nom: string
-  prenom: string
-  email: string
-  telephone: string | null
+  id : string
+  nom ?: string
+  prenom ?: string
+  email ?: string
+  telephone ?: string | null
   pays: string | null
-  photoProfil: string | null
+  photoProfil ?: string | null
   role: "CANDIDAT" | "ADMIN"
 }

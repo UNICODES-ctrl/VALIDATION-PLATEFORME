@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { createClient } from "@supabase/supabase-js"
+import { Document, TypeDocument } from "@/Utils/VAE.type"
 
 const DOCUMENTS_REQUIS = [
   { type: "CV", label: "Curriculum Vitae", desc: "Votre CV à jour", required: true },
@@ -42,13 +43,14 @@ function UploadZone({ type, onUploaded }: {
       if (!res.ok) throw new Error(data.error || "Erreur upload")
 
       onUploaded(data.url, data.name, data.size)
-    } catch (err: any) {
-      if (err.message?.includes("security")) {
+    } catch (err: unknown) {
+      const error = err as Error
+      if (error.message?.includes("security")) {
         setError("Erreur de configuration — contactez l'admin")
-      } else if (err.message?.includes("size")) {
+      } else if (error.message?.includes("size")) {
         setError("Fichier trop volumineux (max 8MB)")
       } else {
-        setError(err.message || "Erreur lors du dépôt")
+        setError(error.message || "Erreur lors du dépôt")
       }
     } finally {
       setUploading(false)
@@ -89,14 +91,20 @@ function UploadZone({ type, onUploaded }: {
 function DocumentsContent() {
   const searchParams = useSearchParams()
   const fromDossier = searchParams.get("from") === "dossier"
-  const [documents, setDocuments] = useState<Record<string, any[]>>({})
+  const [documents, setDocuments] = useState<Record<TypeDocument, Document[]>>({
+    [TypeDocument.CV]: [],
+    [TypeDocument.DIPLOME]: [],
+    [TypeDocument.ATTESTATION]: [],
+    [TypeDocument.CERTIFICAT]: [],
+    [TypeDocument.AUTRE]: []
+  })
   const [deleting, setDeleting] = useState<string | null>(null)
 
   useEffect(() => {
     fetch("/api/documents").then(r => r.json()).then(data => {
       if (data.documents) {
-        const grouped: Record<string, any[]> = {}
-        data.documents.forEach((d: any) => {
+        const grouped: Record<TypeDocument, Document[]> = {} as Record<TypeDocument, Document[]>
+        data.documents.forEach((d: Document) => {
           if (!grouped[d.type]) grouped[d.type] = []
           grouped[d.type].push(d)
         })
@@ -114,7 +122,7 @@ function DocumentsContent() {
     const data = await res.json()
     setDocuments(prev => ({
       ...prev,
-      [type]: [...(prev[type] || []), data.document]
+      [type as TypeDocument]: [...(prev[type as TypeDocument] || []), data.document]
     }))
   }
 
@@ -123,13 +131,13 @@ function DocumentsContent() {
     await fetch(`/api/documents/${id}`, { method: "DELETE" })
     setDocuments(prev => ({
       ...prev,
-      [type]: prev[type]?.filter((d: any) => d.id !== id) || []
+      [type]: prev[type as TypeDocument]?.filter((d: Document) => d.id !== id) || []
     }))
     setDeleting(null)
   }
 
   const totalUploaded = Object.values(documents).flat().length
-  const requiredDone = DOCUMENTS_REQUIS.filter(d => d.required && (documents[d.type]?.length ?? 0) > 0).length
+  const requiredDone = DOCUMENTS_REQUIS.filter(d => d.required && (documents[d.type as TypeDocument]?.length ?? 0) > 0).length
   const totalRequired = DOCUMENTS_REQUIS.filter(d => d.required).length
 
   return (
@@ -167,7 +175,7 @@ function DocumentsContent() {
 
       <div className="space-y-3 mb-8">
         {DOCUMENTS_REQUIS.map((doc) => {
-          const uploaded = documents[doc.type] || []
+          const uploaded = documents[doc.type as TypeDocument] || []
           const isDone = uploaded.length > 0
 
           return (
@@ -190,7 +198,7 @@ function DocumentsContent() {
                     </div>
                     <p className="text-xs text-gray-400 mb-2">{doc.desc}</p>
 
-                    {uploaded.map((f: any) => (
+                    {uploaded.map((f: Document) => (
                       <div key={f.id} className="flex items-center gap-2 mb-1 p-2 bg-white rounded-lg border border-gray-100 text-xs">
                         <File className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                         <span className="flex-1 truncate text-gray-600">{f.nom}</span>

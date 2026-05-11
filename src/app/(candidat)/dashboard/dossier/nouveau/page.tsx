@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,8 +12,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, ChevronRight, ChevronLeft, Loader2, Plus, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-
-
+import { nouveauDossierStep1Schema, nouveauDossierStep4Schema, type NouveauDossierStep1Data, type NouveauDossierStep4Data } from "@/lib/VALIDATIONS/nouveauDossierSchema"
+import { validateAndSubmitDossier } from "@/lib/VALIDATIONS/validateNouveauDossier"
 
 const STEPS = [
   { id: 1, label: "Informations personnelles" },
@@ -31,30 +30,12 @@ const DOMAINES = [
 
 const NIVEAUX = ["Bac+2 (BTS, DUT)", "Bac+3 (Licence)", "Bac+4 (Master 1)", "Bac+5 (Master 2)", "Doctorat"]
 
-const step1Schema = z.object({
-  dateNaissance: z.string().min(1, "Requis"),
-  lieuNaissance: z.string().min(1, "Requis"),
-  adresse: z.string().min(1, "Requis"),
-  ville: z.string().min(1, "Requis"),
-  situationPro: z.string().min(1, "Requis"),
-})
-
-const step4Schema = z.object({
-  titre: z.string().min(1, "Requis"),
-  domaine: z.string().min(1, "Requis"),
-  niveauSouhaite: z.string().min(1, "Requis"),
-  description: z.string().min(10, "Minimum 10 caractères"),
-})
-
-type Step1Data = z.infer<typeof step1Schema>
-type Step4Data = z.infer<typeof step4Schema>
-
 export default function NouveauDossierPage() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [savedStep, setSavedStep] = useState(0)
-  const [step1Data, setStep1Data] = useState<Step1Data | null>(null)
+  const [step1Data, setStep1Data] = useState<NouveauDossierStep1Data | null>(null)
   const [parcoursAcad, setParcoursAcad] = useState([
     { diplome: "", etablissement: "", dateDebut: "", dateFin: "", mention: "" }
   ])
@@ -62,8 +43,8 @@ export default function NouveauDossierPage() {
     { poste: "", entreprise: "", dateDebut: "", dateFin: "", enPoste: false, missions: "", competences: "" }
   ])
 
-  const form1 = useForm<Step1Data>({ resolver: zodResolver(step1Schema) })
-  const form4 = useForm<Step4Data>({ resolver: zodResolver(step4Schema) })
+  const form1 = useForm<NouveauDossierStep1Data>({ resolver: zodResolver(nouveauDossierStep1Schema) })
+  const form4 = useForm<NouveauDossierStep4Data>({ resolver: zodResolver(nouveauDossierStep4Schema) })
 
   const handleNext = async () => {
     if (currentStep === 1) {
@@ -82,24 +63,19 @@ export default function NouveauDossierPage() {
     if (!valid) return
     setLoading(true)
     try {
-      const step1Values = form1.getValues()
-      const res = await fetch("/api/dossier", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...step1Values,
-          ...form4.getValues(),
-          parcoursAcad,
-          parcoursPro,
-        }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        router.push(`/dashboard/dossier/${data.dossierId}/documents?from=nouveau`)
-        router.refresh()
-      } else {
-        alert(data.error || "Erreur lors de la soumission")
+      if (!step1Data) {
+        throw new Error("Données étape 1 manquantes")
       }
+      const data = await validateAndSubmitDossier(
+        step1Data,
+        form4.getValues(),
+        parcoursAcad,
+        parcoursPro
+      )
+      router.push(`/dashboard/dossier/${data.dossierId}/documents?from=nouveau`)
+      router.refresh()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erreur lors de la soumission")
     } finally {
       setLoading(false)
     }
@@ -129,9 +105,9 @@ export default function NouveauDossierPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto px-4 sm:px-0">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Nouvelle candidature VAE</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Nouvelle candidature VAE</h1>
         <p className="text-gray-500 mt-1">Complétez votre dossier étape par étape</p>
       </div>
 
@@ -140,10 +116,9 @@ export default function NouveauDossierPage() {
         {STEPS.map((step, idx) => (
           <div key={step.id} className="flex items-center flex-1">
             <button onClick={() => step.id <= savedStep + 1 && setCurrentStep(step.id)} className="flex flex-col items-center gap-1">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
-                currentStep === step.id ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200" :
+              <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${currentStep === step.id ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200" :
                 savedStep >= step.id ? "bg-green-500 text-white" : "bg-gray-100 text-gray-400"
-              }`}>
+                }`}>
                 {savedStep >= step.id && currentStep !== step.id ? <CheckCircle2 className="w-5 h-5" /> : step.id}
               </div>
               <span className={`text-xs font-medium hidden sm:block ${currentStep === step.id ? "text-indigo-600" : "text-gray-400"}`}>
@@ -157,7 +132,7 @@ export default function NouveauDossierPage() {
         ))}
       </div>
 
-      <Card className="shadow-sm">
+      <Card className="col-span-2 md:col-span-1 drop-shadow-xl shadow-indigo-200 ring-1 ring-blue-100 overflow-hidden">
         {/* ÉTAPE 1 */}
         {currentStep === 1 && (
           <>
@@ -166,7 +141,7 @@ export default function NouveauDossierPage() {
               <CardDescription>Vos données d&apos;état civil et situation actuelle</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Date de naissance</Label>
                   <Input type="date" max={new Date().toISOString().split("T")[0]} {...form1.register("dateNaissance")} className="h-11" />
@@ -203,12 +178,12 @@ export default function NouveauDossierPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               {parcoursAcad.map((item, i) => (
-                <div key={i} className="p-4 border border-gray-100 rounded-xl bg-gray-50/50 space-y-3">
+                <div key={i} className="p-3 sm:p-4 border border-gray-100 rounded-xl bg-gray-50/50 space-y-3">
                   <div className="flex items-center justify-between">
                     <Badge variant="outline" className="text-indigo-600 border-indigo-200 bg-indigo-50">Diplôme {i + 1}</Badge>
                     {i > 0 && <Button variant="ghost" size="sm" onClick={() => removeAcad(i)} className="text-red-400 hover:text-red-600 h-7"><Trash2 className="w-4 h-4" /></Button>}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Diplôme obtenu</Label>
                       <Input placeholder="Licence en informatique" value={item.diplome} onChange={e => updateAcad(i, "diplome", e.target.value)} className="h-10" />
@@ -249,12 +224,12 @@ export default function NouveauDossierPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               {parcoursPro.map((item, i) => (
-                <div key={i} className="p-4 border border-gray-100 rounded-xl bg-gray-50/50 space-y-3">
+                <div key={i} className="p-3 sm:p-4 border border-gray-100 rounded-xl bg-gray-50/50 space-y-3">
                   <div className="flex items-center justify-between">
                     <Badge variant="outline" className="text-indigo-600 border-indigo-200 bg-indigo-50">Expérience {i + 1}</Badge>
                     {i > 0 && <Button variant="ghost" size="sm" onClick={() => removePro(i)} className="text-red-400 hover:text-red-600 h-7"><Trash2 className="w-4 h-4" /></Button>}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Poste occupé</Label>
                       <Input placeholder="Développeur senior" value={item.poste} onChange={e => updatePro(i, "poste", e.target.value)} className="h-10" />
@@ -333,13 +308,13 @@ export default function NouveauDossierPage() {
         )}
 
         {/* Navigation */}
-        <div className="flex items-center justify-between px-6 pb-6 pt-2">
+        <div className="flex items-center justify-between px-3 sm:px-6 pb-6 pt-2">
           <Button variant="ghost" onClick={() => setCurrentStep(s => s - 1)} disabled={currentStep === 1} className="gap-2">
-            <ChevronLeft className="w-4 h-4" /> Précédent
+            <ChevronLeft className="w-4 h-4" /> <span className="hidden sm:inline">Précédent</span>
           </Button>
           {currentStep < 4 ? (
             <Button onClick={handleNext} className="gap-2" style={{ background: "linear-gradient(135deg, #4f46e5, #6366f1)" }}>
-              Suivant <ChevronRight className="w-4 h-4" />
+              <span className="hidden sm:inline">Suivant</span> <ChevronRight className="w-4 h-4" />
             </Button>
           ) : (
             <Button onClick={handleSubmit} disabled={loading} className="gap-2" style={{ background: "linear-gradient(135deg, #4f46e5, #6366f1)" }}>
