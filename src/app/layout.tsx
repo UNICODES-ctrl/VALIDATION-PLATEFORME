@@ -4,6 +4,7 @@ import "./globals.css"
 export const metadata: Metadata = {
   title: "UNICODES VAE",
   description: "Plateforme de gestion des candidatures VAE",
+  
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
